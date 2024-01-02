@@ -206,12 +206,20 @@ class MultipartDecoder:
                 self._search_position = max(0, len(self.buffer) - SEARCH_EXTRA_LENGTH)
 
         elif self.state == State.DATA:
-            if self.buffer.find(b"--" + self.boundary) == -1:
+            boundary = b"--" + self.boundary
+            data = self.buffer
+            if self.buffer.find(boundary) == -1:
                 # No complete boundary in the buffer, but there may be
                 # a partial boundary at the end. As the boundary
                 # starts with either a nl or cr find the earliest and
                 # return up to that as data.
                 data_length = del_index = self.last_newline()
+                # If amount of data after last newline is far from
+                # possible length of partial boundary, we should
+                # assume that there is no partial boundary in the buffer
+                # and return all pending data.
+                if (len(data) - data_length) > len(b"\n" + boundary):
+                    data_length = del_index = len(data)
                 more_data = True
             else:
                 match = self.boundary_re.search(self.buffer)
